@@ -20,7 +20,9 @@ import {
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useCollectionData } from 'react-firebase-hooks/firestore';
 
-// Firebase configuration
+
+const API_KEY = 'AIzaSyBzMk_f1U9ZTBtJspjNoDvligm3oQ5i2fc';
+const DISCOVERY_URL = 'https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=' + API_KEY;
 const firebaseConfig = {
   apiKey: "AIzaSyBDmaXruX5m01ZeUILvmzFmpSxISvyjoAE",
   authDomain: "safe-message-92d0c.firebaseapp.com",
@@ -49,6 +51,53 @@ function App() {
     </div>
   );
 }
+
+const validateMessage = async (str) => {
+  try {
+
+    const requestBody = {
+      comment: { text: str },
+      languages: ['en'], 
+      requestedAttributes: {
+        TOXICITY: {},
+        INSULT: {},
+        PROFANITY: {},
+        THREAT: {}
+      }
+    };
+
+    const response = await fetch(DISCOVERY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const scores = {
+      toxicity: data.attributeScores.TOXICITY.summaryScore.value,
+      insult: data.attributeScores.INSULT.summaryScore.value,
+      profanity: data.attributeScores.PROFANITY.summaryScore.value,
+      threat: data.attributeScores.THREAT.summaryScore.value,
+    };
+    console.log(scores);
+
+    const threshold = 0.7;
+
+    const isInappropriate = Object.values(scores).some(score => score >= threshold);
+
+    return !isInappropriate; 
+  } catch (error) {
+    console.error('Error validating message:', error);
+    return false; 
+  }
+};
 
 function SignIn() {
   const signInWithGoogle = () => {
@@ -84,17 +133,22 @@ function ChatRoom() {
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    const { uid, photoURL } = auth.currentUser;
-
-    await addDoc(messagesRef, {
-      text: formValue,
-      createdAt: serverTimestamp(),
-      uid,
-      photoURL
-    });
-
-    setFormValue('');
-    dummy.current.scrollIntoView({ behavior: 'smooth' });
+  
+    if (await validateMessage(formValue)) {
+      const { uid, photoURL } = auth.currentUser;
+  
+      await addDoc(messagesRef, {
+        text: formValue,
+        createdAt: serverTimestamp(),
+        uid,
+        photoURL,
+      });
+  
+      setFormValue('');
+      dummy.current.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      alert('Your message contains inappropriate content. Please revise it.');
+    }
   };
 
   return (
@@ -109,7 +163,7 @@ function ChatRoom() {
           onChange={(e) => setFormValue(e.target.value)} 
           placeholder="Say something nice" 
         />
-        <button type="submit" disabled={!formValue}>🕊️</button>
+        <button type="submit" disabled={!formValue}>Send</button>
       </form>
     </>
   );
