@@ -107,8 +107,10 @@ function SignIn() {
 
   return (
     <>
+      <img src={require("./cat.jpg")} className="cat"></img>
       <button className="sign-in" onClick={signInWithGoogle}>Sign in with Google</button>
-      <p>Do not violate the community guidelines!</p>
+      <p>Do not violate the community guidelines! <br></br> <br></br>
+      Our project was made using React and the Google PerspectiveAPI.</p>
     </>
   );
 }
